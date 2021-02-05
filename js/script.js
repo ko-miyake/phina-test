@@ -11,6 +11,8 @@ let EnemyGroup = null;
 let PlayerGroup=null;
 let DisplayGroup=null;
 
+
+
 // 
 let maxBullet=2;
 
@@ -23,6 +25,8 @@ var ASSETS = {
   image: {
     // 背景画像
     'bg1':"./images/background.png",
+    'shopbg':"./images/shop.png",
+    'tittlebg':"./images/tittle.png",
     // 地面
     'ground': './images/Ground.png',
     // プレイヤー
@@ -45,18 +49,74 @@ var ASSETS = {
 };
 
 let Scenes = [
-  {
-    label: 'MainScene',
-    className: 'MainScene',
-    nextLabel: '',
-  },
-  {
-    label: 'MyPauseScene',
-    className: 'MyPauseScene',
-    nextLabel: 'MainScene',
-  },
+    {
+      label: 'MainScene',
+      className: 'MainScene',
+      nextLabel: '',
+    },
+    {
+      label: 'MyPauseScene',
+      className: 'MyPauseScene',
+      nextLabel: 'MainScene',
+    },
+    {
+      label: 'ClearScene',
+      className: 'ClearScene',
+      nextLabel: 'MainScene',
+    },
+    {
+      label: 'GameOverScene',
+      className: 'GameOverScene',
+      nextLabel: 'MainScene',
+    },
+    {
+      label: 'TittleScene',
+      className: 'TittleScene',
+      nextLabel: '',
+    },
+    {
+      label: 'ShopScene',
+      className: 'ShopScene',
+      nextLabel: '',
+    },
+    
   ];
 
+  phina.define("TittleScene", {
+    
+    superClass: 'DisplayScene',
+    
+    init: function() {
+    
+      this.superInit({
+        width: SCREEN_WIDTH,
+        height: SCREEN_HEIGHT,
+      });
+      
+      this.bgGroup = DisplayElement().addChildTo(this);
+      var bg = Sprite('tittlebg').addChildTo(this.bgGroup);
+      bg.setPosition(this.gridX.center(), this.gridY.center());
+
+      let self=this;
+    Button({
+      text: 'GAME START',
+      fontSize:34,
+      width:250,
+      height:60,
+      color:"black",
+      fill:"gray",
+    }).addChildTo(this)
+      .setPosition(SCREEN_WIDTH-200, SCREEN_HEIGHT/2+SCREEN_HEIGHT/8)
+      .onpush = function() {
+        // ポーズシーンをpushする
+        self.exit("MainScene",{
+          next:0
+        });    
+      };
+      
+    }
+   
+  });
 
 phina.define("MainScene", {
   // 継承
@@ -70,22 +130,18 @@ phina.define("MainScene", {
       height: SCREEN_HEIGHT,
     });
 
-
-    
     // group作成
     // GameObjとかで纏めたい
 
     this.bgGroup = DisplayElement().addChildTo(this);
     DisplayGroup=DisplayElement().addChildTo(this);
-
+    this.spriteGroup=DisplayElement().addChildTo(this);
     BulletGroup = DisplayElement().addChildTo(this);
     EnemyGroup=DisplayElement().addChildTo(this);
     PlayerGroup=DisplayElement().addChildTo(this);
-    
-    
+      
     // 背景色
     this.backgroundColor = 'black';
-
    
     var bg = Sprite('bg1').addChildTo(this.bgGroup);
     bg.setPosition(this.gridX.center(), this.gridY.center());
@@ -95,92 +151,44 @@ phina.define("MainScene", {
     
     var self = this;
 
-    // ポーズボタン
-    Button({
-      text: 'Esc for Pause',
-      fontSize:14,
-      width:105,
-      height:30,
-      color:"gray",
-    }).addChildTo(this)
-      .setPosition(SCREEN_WIDTH-60, 25)
-      .onpush = function() {
-        // ポーズシーンをpushする
-        self.app.pushScene(MyPauseScene());    
-      };
-
     
-
 
     // プレイヤー作成
     this.player = Player().addChildTo(this)
       .setPosition(300, 200).addChildTo(PlayerGroup);
     this.castle=Castle().addChildTo(this).setPosition(64,SCREEN_HEIGHT/2-25).addChildTo(DisplayGroup);
 
+    this.stage=1;
     // 敵系初期化
     this.enemyManager = EnemyManager();
     this.enemyCounter = 0;
     this.enemyMaxCount = 4;
     this.pop=0;
-
+    this.popTime=3000;
+    
+    console.log(param);
     // 変数の引継ぎ
-    console.log(param.hoge);
     if(param.next==1){
-      self.enemyMaxCount = param.MaxCount;
+      self.enemyMaxCount = param.enemyMaxCount;
+      self.castle.gauge.value=param.castleHP;
+      self.stage=param.stage;
+      self.player.hp=param.playHP;
+      self.popTime=500>=3000-(self.stage*150)?500:3000-(self.stage*150);
     }
 
 
 
-    // クリア時用
-    this.cLabel=Label({
-      text: 'STAGE CLEAR',
+    // ステージ数表示
+    let stageLabel=Label({
+      text: 'STAGE'+self.stage,
       fontSize: 64,
-      fill:"red",
+      fill:"green",
       fontWeight:"bold",
-    }).addChildTo(this).setPosition(this.gridX.center(), this.gridY.center()-40);
-    
-    this.cBtn=Button({
-      text: 'NEXT STAGE',
-      fontSize:34,
-      width:250,
-      height:60,
-      color:"black",
-      fill:"gray",
-    }).addChildTo(this).setPosition(this.gridX.center(), this.gridY.center()+50).onpush = function() {
-      self.exit("MainScene",{
-        hoge:"hoge",
-        next:1,
-        MaxCount:self.enemyMaxCount+2
-      }); 
-    };
-    this.cLabel.alpha = 0;
-    console.log(this.cBtn.alpha);
+    }).addChildTo(this).setPosition(this.gridX.center(), this.gridY.center());
 
-    
-    // ゲームオーバー用
-    this.gLabel=Label({
-      text: 'GAME OVER',
-      fontSize: 64,
-      fill:"blue",
-      fontWeight:"bold",
-    }).addChildTo(this).setPosition(this.gridX.center(), this.gridY.center()-40);
+    stageLabel.tweener.fadeOut(2000).play();
 
-    // this.gBtn=Button({
-    //   text: 'TITLE',
-    //   fontSize:34,
-    //   width:250,
-    //   height:60,
-    //   color:"black",
-    //   fill:"gray",
-    // }).addChildTo(this).setPosition(this.gridX.center(), this.gridY.center()+50).onpush = function() {
-    //     self.app.pushScene(MyPauseScene());    
-    // };
-    this.gLabel.alpha = 0;
-    // this.gBtn.alpha = 0;
-
-
-
-    
+    this.drawUi();
   },
   update: function (app) {
 
@@ -191,31 +199,66 @@ phina.define("MainScene", {
     if(key.getKeyDown(27)){
       self.app.pushScene(MyPauseScene());    
     }
-    if(key.getKey("c")){
-      self.exit("MyPauseScene"); 
-    }
+
     if(key.getKey("e")){
       this.enemyManager.CheckEnemy();
     }
     
     // 湧き処理
     if (this.pop == 0 && this.enemyCounter < this.enemyMaxCount) {
-      let minPos = 30;
-      let maxPos = SCREEN_HEIGHT;
+      let minPos = 90;
+      let maxPos = SCREEN_HEIGHT-100;
       let ramdomPos = Math.floor(Math.random() *
         (maxPos + 1 - minPos)) + minPos;
+      
+        // console.log(ramdomPos);
       setTimeout(function(){
-        self.enemyManager.CreateEnemy(SCREEN_WIDTH,ramdomPos);
+        self.enemyManager.CreateEnemy(SCREEN_WIDTH,ramdomPos,self.stage);
+        self.enemyCounter += 1;
         self.pop=0;
-      }, 3000);
-      self.enemyCounter += 1;
+        console.log(ramdomPos);
+     
+      }, self.popTime);
+     
       self.pop=1;
     }
-    
-    // ステージクリア
-    if(this.enemyCounter>=this.enemyMaxCount && EnemyGroup.children.length==0){
-      this.cLabel.tweener.fadeIn(2000).play();
+
+    if(this.castle.value>0 && this.player.isAlive==1){
+      // ステージクリア
+      if(self.enemyCounter>=self.enemyMaxCount && EnemyGroup.children.length==0){
+
+        this.cLabel=Label({
+          text: 'STAGE CLEAR',
+          fontSize: 64,
+          fill:"red",
+          fontWeight:"bold",
+        }).addChildTo(this).setPosition(this.gridX.center(), this.gridY.center()-40);
+        
+        this.cBtn=Button({
+          text: 'NEXT STAGE',
+          fontSize:34,
+          width:250,
+          height:60,
+          color:"black",
+          fill:"gray",
+        }).addChildTo(this).setPosition(this.gridX.center(), this.gridY.center()+50).onpush = function() {
+          //変数引継ぎ 
+          self.exit("MainScene",{
+            next:1,
+            enemyMaxCount:self.enemyMaxCount+2,
+            castleHP:self.castle.value,
+            stage:self.stage+1,
+            playHP:self.player.hp,
+          }); 
+
+        };    
+      }
+    }else{
+        // ゲームオーバー用
+        this.GameOver();
     }
+
+
 
     // 画面外処理
     BulletGroup.children.each(function(bullet) {
@@ -236,8 +279,33 @@ phina.define("MainScene", {
   },
 
 
+// 初期画像表示用
+  drawUi:function(){
+    let self=this;
+    // ポーズボタン
+    Button({
+      text: 'Esc for Pause',
+      fontSize:14,
+      width:105,
+      height:30,
+      color:"gray",
+    }).addChildTo(this).setPosition(SCREEN_WIDTH-60, 25).onpush = function() {
+        self.app.pushScene(MyPauseScene());    
+    };
 
+    //playerHP
+    (this.player.hp) .times(function(i){
+      // var bg = Sprite('bg1').addChildTo(this.bgGroup);
+      // bg.setPosition(this.gridX.center(), this.gridY.center());
+      let playerIcon = Sprite('player', PLAYER_SIZE-10, PLAYER_SIZE-10).addChildTo(self.spriteGroup).setPosition(30+(i*40), 30);
+      // playerIcon.
+      
+    });
+  },
+
+// あたり判定
   allCollision:function(){
+    let self=this;
     // プレイヤーとエネミーのあたり判定
     EnemyGroup.children.each(function(enemy) {
       PlayerGroup.children.each(function(player) {
@@ -246,7 +314,14 @@ phina.define("MainScene", {
         var r2 = player.collider.getAbsoluteRect();
         // ヒットなら
         if (Collision.testRectRect(r1, r2)) {
-
+          // let isDamage=;
+          if(player.isDamage==1 || player.isAlive==0)return;
+          player.damage(1);
+          enemy.remove();
+          self.spriteGroup.children.last.remove();
+          if(player.hp<=0){
+            self.GameOver();
+          }
         }
       });
     });
@@ -271,12 +346,33 @@ phina.define("MainScene", {
         var r2 = castle.collider.getAbsoluteRect();
         // ヒットなら
         if (Collision.testRectRect(r1, r2)) {
-          enemy.delete();
+          enemy.damege();
           castle.damage(10);
         }
       });
     });
-  }
+  },
+
+  GameOver:function(){
+    let self=this;
+    this.gLabel=Label({
+      text: 'STAGE'+self.stage+'\n'+'GAME OVER',
+      fontSize: 64,
+      fill:"blue",
+      fontWeight:"bold",
+    }).addChildTo(this).setPosition(this.gridX.center(), this.gridY.center()-60);
+
+    this.gBtn=Button({
+      text: 'TITLE',
+      fontSize:34,
+      width:250,
+      height:60,
+      color:"black",
+      fill:"gray",
+    }).addChildTo(this).setPosition(this.gridX.center(), this.gridY.center()+50).onpush = function() {
+        self.exit("TittleScene");
+    };
+  },
 
 });
 
@@ -295,7 +391,9 @@ phina.define("Player", {
     this.speed = C.PLAYER_SPEED;
     this.canShoot=true;
     this.cooldown=3000;
-    
+    this.hp=3;
+    this.isDamage=0;
+    this.isAlive=1;
 
     // あたり判定
     this.collider = Collider({
@@ -309,52 +407,63 @@ phina.define("Player", {
     if(this.canShoot){
       let bullet=Bullet().addChildTo(BulletGroup).setPosition(this.x, this.y);
       self.canShoot=false;
-      setTimeout(function(){self.canShoot=true;}, 1000);
+      setTimeout(function(){self.canShoot=true;}, 500);
     }
     
 
   },
-  // update:function(app){
-  //   let key=app.keyboard;
-  //   let self=this;
 
-  //   // キー操作
-  //   // そのうち綺麗にコード書く
-  //   if (key.getKey('left')) {
-  //     this.x-=this.speed;
-  //   }
-
-  //   if (key.getKey('right')) {
-  //     this.x+=this.speed;
-  //   }
-
-  //   if (key.getKey('up')) {
-  //     this.y-=this.speed;
-  //   }
-
-  //   if (key.getKey('down')) {
-  //     this.y+=this.speed;
-  //   }
-  //   if (key.getKey('enter')) {
-  //     this.shoot();
-  //   }
-
-
-  // }
   update: function (app) {
     // 移動する向きを求める
     var direction = app.keyboard.getKeyDirection();
 
-    // 移動する向きとスピードを代入する
-    this.moveBy(direction.x * this.speed, direction.y * this.speed);
+    if(this.isDamage==0){
+      // 移動する向きとスピードを代入する
+      this.moveBy(direction.x * this.speed, direction.y * this.speed);
+    }
 
     // 射撃
     var key = app.keyboard;
     if (key.getKeyDown('enter')||key.getKeyDown('q')) {
       this.shoot();
     }
-    // 
+
+    if (key.getKeyDown('w')) {
+      console.log(self.isDamage);
+    }
+    //画面外処理
+    if(this.x<=0){
+      this.x=0;
+    }else if(this.x>=SCREEN_WIDTH){
+      this.x=SCREEN_WIDTH;
+    }
+    if(this.y<=0){
+      this.y=0;
+    }else if(this.y>=SCREEN_HEIGHT){
+      this.y=SCREEN_HEIGHT;
+    }
   },
+
+  damage:function(param){
+    let self=this;
+    let blinkTween = Tweener().clear().fadeOut(100).fadeIn(100).setLoop(true);
+    blinkTween.attachTo(this);
+    this.isDamage=1;
+    let timerTween = Tweener().clear()
+    .wait(1000)
+    .call(function() {
+      self.alpha = 1.0;
+      blinkTween.stop();
+      self.isDamage=0;
+    }, this);
+    timerTween.attachTo(this);                     
+    
+    this.hp-=param;
+    if(this.hp<=0){
+      this.isAlive=0;
+    }
+
+  }
 
 });
 
@@ -378,7 +487,7 @@ phina.define("Castle", {
 
     let self=this;
     this.gauge= Gauge({
-      x: -5, y: -120,        // x,y座標
+      x: 0, y: -90,        // x,y座標
       width: 100,            // 横サイズ
       height: 20,            // 縦サイズ
       cornerRadius: 10,      // 角丸み
@@ -414,8 +523,9 @@ phina.define("Bullet", {
     // 親クラス初期化
     this.superInit();
     // スピード
-    var speed = 10;
+    var speed = 5;
     var self = this;
+    
 
     Sprite('bullet', 10, 10).addChildTo(self).setPosition(self.x, self.y);
 
@@ -439,10 +549,8 @@ phina.define("Enemy", {
   init: function () {
     // 親クラス初期化
     this.superInit();
-    
-
-    // スピード
-    var speed = 5;
+    this.hp=2;
+    this.speed = 1.5;
     var self = this;
     this.time=0;    
     this.collider = Collider({
@@ -458,11 +566,21 @@ phina.define("Enemy", {
     let type = [1, 2, 3];
     // console.log(type[myNum]);
     let str="ghost"+String(type[myNum]);
-    console.log(str);
+    // console.log(str);
 
     let sp=Sprite(str, 32, 32).addChildTo(self).setPosition(self.x, self.y);
     FrameAnimation('ghost').attachTo(sp).gotoAndPlay('walk');
     this.myType=type[myNum];
+    
+    if(this.myType==2){
+      if(this.y>=SCREEN_HEIGHT-50){
+        this.y=SCREEN_HEIGHT-70;
+      }
+
+      // if(this.y>=50){
+      //   this.y=60;
+      // }
+    }
 
 
 
@@ -470,14 +588,34 @@ phina.define("Enemy", {
 
   update: function () {
     // this.physical.velocity.y = +this.speed;
+    let self=this;
     
-    this.y = this.popY+(3.14*2/120*this.time).sin()*50;
-    this.x-=1;
-    // console.log(this.y);
-    this.time += 1;
+    if(this.myType==1){
+      self.x-=self.speed;
+    }
+    else if(this.myType==2){
+      self.y = this.popY+(3.14*2/120*this.time).sin()*50;
+      self.x-=this.speed/2;
+      self.time += 1;
+    }else{
+      PlayerGroup.children.each(function(player) {
+
+        let direction =Vector2(player.x-self.x,player.y-self.y).normalize();
+        // console.log(direction);
+        self.x += direction.x * self.speed*1.5;
+        self.y += direction.y * self.speed*1.5;
+      });
+      
+    }
     
   },
-
+  damege:function(){
+    let self=this;
+    this.hp-=1;
+    if(this.hp>=0){
+      self.remove();
+    }
+  },
   delete:function(){
     this.remove();
   }
@@ -495,14 +633,15 @@ phina.define("EnemyManager", {
     this.num = 0;
     this.hp=10;
   },
-  CreateEnemy: function (x, y) {
+  CreateEnemy: function (x, y,stage) {
     let enemy=Enemy().addChildTo(EnemyGroup).setPosition(x, y);
     enemy.popY=y;
-    console.log(EnemyGroup);
+    let speed=enemy.speed+(0.25*stage)>=5?5:enemy.speed+(0.25*stage);
+    enemy.speed=speed;
+    // console.log(EnemyGroup);
+    // ステージごとスピード早める
   },
-  update: function () {
-    console.log("hige");
-  },
+
   CheckEnemy: function(){
     console.log(EnemyGroup.children.length);
   }
@@ -520,6 +659,68 @@ phina.define("Ground", {
     // 原点を左上に
     this.origin.set(0, 0);
   },
+});
+
+phina.define("Boss", {
+  // 継
+  superClass: 'DisplayElement',
+  // 初期化
+  init: function () {
+    // 親クラス初期化
+    this.superInit();
+    
+    this.hp=2;
+    this.speed = 1.5;
+    var self = this;
+    this.time=0;    
+    this.collider = Collider({
+      width: 32,
+      height: 32,
+    }).addChildTo(this);
+
+    var min = 0;
+    var max = 2;
+    let myNum = Math.floor(Math.random() *
+      (max + 1 - min)) + min;
+
+    let type = [1, 2, 3];
+    // console.log(type[myNum]);
+    let str="ghost"+String(type[myNum]);
+    // console.log(str);
+
+    let sp=Sprite(str, 32, 32).addChildTo(self).setPosition(self.x, self.y);
+    FrameAnimation('ghost').attachTo(sp).gotoAndPlay('walk');
+    this.myType=type[myNum];
+    
+    if(this.myType==2){
+      if(this.y>=SCREEN_HEIGHT-50){
+        this.y=SCREEN_HEIGHT-70;
+      }
+
+      // if(this.y>=50){
+      //   this.y=60;
+      // }
+    }
+
+
+
+  },
+
+  update: function () {
+
+    
+  },
+  damege:function(){
+    let self=this;
+    this.hp-=1;
+    if(this.hp>=0){
+      self.remove();
+    }
+  },
+  delete:function(){
+    this.remove();
+  }
+
 });
 
 
@@ -556,7 +757,11 @@ phina.define("MyPauseScene", {
   // コンストラクタ
   init: function() {
     // 親クラス初期化
-    this.superInit();
+    this.superInit({
+       // 画面サイズ指定
+       width: SCREEN_WIDTH,
+       height: SCREEN_HEIGHT,
+    });
     // 背景を半透明化
     this.backgroundColor = 'rgba(0, 0, 0, 0.7)';
 
@@ -565,9 +770,10 @@ phina.define("MyPauseScene", {
     Button({
       text: 'Resume',
       fontSize:20,
-      width:20,
+      width:200,
+      fill:"gray"
     }).addChildTo(this)
-      .setPosition(this.gridX.center(), this.gridY.center(-3))
+      .setPosition(this.gridX.center(), this.gridY.center()+100)
       .onpush = function() {
         // 自身を取り除く
         self.exit();    
@@ -592,22 +798,18 @@ phina.define("ShopScene", {
   // コンストラクタ
   init: function() {
     // 親クラス初期化
-    this.superInit();
-    // 背景を半透明化
-    this.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    this.superInit({
+      // 画面サイズ指定
+      width: SCREEN_WIDTH,
+      height: SCREEN_HEIGHT,
+    });
+    this.bgGroup = DisplayElement().addChildTo(this);
+    var bg = Sprite('shopbg').addChildTo(this.bgGroup);
+    bg.setPosition(this.gridX.center(), this.gridY.center());
 
-    var self = this;
-    // ポーズ解除ボタン    
-    Button({
-      text: 'Resume',
-      fontSize:20,
-      width:20,
-    }).addChildTo(this)
-      .setPosition(this.gridX.center(), this.gridY.center(-3))
-      .onpush = function() {
-        // 自身を取り除く
-        self.exit();    
-      };
+
+    // ボタン
+
   },
   update: function (app) {
     let self=this;
@@ -619,35 +821,47 @@ phina.define("ShopScene", {
   },
 });
 
+
+
+/*
+ * CLEAR
+ */
+phina.define("GameOverScene", {
+  // 継承
+  superClass: 'DisplayScene',
+  // コンストラクタ
+  init: function() {
+    // 親クラス初期化
+    this.superInit({
+      // 画面サイズ指定
+      width: SCREEN_WIDTH,
+      height: SCREEN_HEIGHT,
+    });
+    // 背景を半透明化
+    this.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+
+    var self = this;
+
+
+  },
+  update: function () {
+
+  },
+});
+
 phina.main(function () {
   // アプリケーションを生成
   var app = GameApp({
-    startLabel: 'MainScene',
+    startLabel: 'TittleScene',
     // fit:false,
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
     domElement: document.getElementById('phina-canvas'),
-    // fps: 60,
+    fps: 60,
     // MainScene から開始
     //startLabel: 'main'
     
-    // アセット読み込み
 
-    // // backgroundColor: 'skyblue',
-
-    // scenes: [
-    //   {
-    //     className: 'main',
-    //     label: 'main',
-    //     nextLabel: 'MyPauseScene',
-    //   },
-
-    //   {
-    //     className: 'MyPauseScene',
-    //     label: 'MyPauseScene',
-    //     nextLabel: 'main',
-    //   },
-    // ],
     scenes: Scenes,
 
     assets: ASSETS,
