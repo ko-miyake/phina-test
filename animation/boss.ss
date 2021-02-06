@@ -1,15 +1,15 @@
 {
   "frame": {
-    "width": 32,
-    "height": 32,
+    "width": 64,
+    "height": 64,
     "cols": 3,
     "rows": 4
   },
   "animations" : {
     "walk": {
-      "frames": [3,4,5],
+      "frames": [0,1,2],
       "next": "walk",
-      "frequency": 12
+      "frequency": 28
     }
   }
 }

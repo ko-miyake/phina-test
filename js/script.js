@@ -10,6 +10,10 @@ let BulletGroup = null;
 let EnemyGroup = null;
 let PlayerGroup=null;
 let DisplayGroup=null;
+let warpGroup = null;
+
+let BossGroup=null;
+
 
 
 
@@ -21,6 +25,10 @@ let maxBullet=2;
 
 // アセット
 var ASSETS = {
+  sound: {
+    "bgm1":"./sound/PerituneMaterial_Spook4_loop.mp3",
+    "down":"./sound/down.mp3",
+},
   // 画像
   image: {
     // 背景画像
@@ -33,18 +41,22 @@ var ASSETS = {
     'ghost1': './images/pipo-halloweenchara2016_15.png',
     'ghost2': './images/teki2.png',
     'ghost3': './images/teki3.png',
+    'boss':"./images/boss.png",
 
     'player': './images/player.png',
     'bullet':"./images/tama.png",
 
     // 城画像
     'Castle':'./images/castle.png',
+    'warp':'./images/warp.png',
 
   },
   // フレームアニメーション情報
   spritesheet: {
     'tomapiko_ss': 'https://rawgit.com/phi-jp/phina.js/develop/assets/tmss/tomapiko.tmss',
     'ghost': './animation/ghost.ss',
+    'boss': './animation/boss.ss',
+    'warp': './animation/warp.ss',
   },
 };
 
@@ -129,6 +141,11 @@ phina.define("MainScene", {
       width: SCREEN_WIDTH,
       height: SCREEN_HEIGHT,
     });
+    SoundManager.playMusic('bgm1');
+    SoundManager.setVolumeMusic(0.1);
+    SoundManager.setVolume(0.3);
+
+
 
     // group作成
     // GameObjとかで纏めたい
@@ -137,22 +154,25 @@ phina.define("MainScene", {
     DisplayGroup=DisplayElement().addChildTo(this);
     this.spriteGroup=DisplayElement().addChildTo(this);
     BulletGroup = DisplayElement().addChildTo(this);
+    BossGroup=DisplayElement().addChildTo(this);
+    warpGroup = DisplayElement().addChildTo(this);
+
     EnemyGroup=DisplayElement().addChildTo(this);
     PlayerGroup=DisplayElement().addChildTo(this);
+
       
     // 背景色
     this.backgroundColor = 'black';
    
-    var bg = Sprite('bg1').addChildTo(this.bgGroup);
+    let bg = Sprite('bg1').addChildTo(this.bgGroup);
     bg.setPosition(this.gridX.center(), this.gridY.center());
     
-    var ground = Sprite('ground').addChildTo(this.bgGroup);
+    let ground = Sprite('ground').addChildTo(this.bgGroup);
     ground.setPosition(SCREEN_WIDTH/2, SCREEN_HEIGHT/2);
     
-    var self = this;
+    let self = this;
 
-    
-
+  
     // プレイヤー作成
     this.player = Player().addChildTo(this)
       .setPosition(300, 200).addChildTo(PlayerGroup);
@@ -161,10 +181,13 @@ phina.define("MainScene", {
     this.stage=1;
     // 敵系初期化
     this.enemyManager = EnemyManager();
+    this.popBaseTime=3000;
     this.enemyCounter = 0;
     this.enemyMaxCount = 4;
     this.pop=0;
     this.popTime=3000;
+    this.waveClear=0;
+    this.isBoss=0;
     
     console.log(param);
     // 変数の引継ぎ
@@ -173,9 +196,8 @@ phina.define("MainScene", {
       self.castle.gauge.value=param.castleHP;
       self.stage=param.stage;
       self.player.hp=param.playHP;
-      self.popTime=500>=3000-(self.stage*150)?500:3000-(self.stage*150);
+      self.popTime=500>=self.popBaseTime-(self.stage*150)?500:self.popBaseTime-(self.stage*50);
     }
-
 
 
     // ステージ数表示
@@ -189,6 +211,14 @@ phina.define("MainScene", {
     stageLabel.tweener.fadeOut(2000).play();
 
     this.drawUi();
+
+
+    // BOSS
+    if(self.stage==2){
+      this.BossInit();
+    }
+
+    
   },
   update: function (app) {
 
@@ -199,66 +229,42 @@ phina.define("MainScene", {
     if(key.getKeyDown(27)){
       self.app.pushScene(MyPauseScene());    
     }
-
-    if(key.getKey("e")){
-      this.enemyManager.CheckEnemy();
-    }
     
-    // 湧き処理
+    // 通常湧き処理
     if (this.pop == 0 && this.enemyCounter < this.enemyMaxCount) {
       let minPos = 90;
       let maxPos = SCREEN_HEIGHT-100;
       let ramdomPos = Math.floor(Math.random() *
         (maxPos + 1 - minPos)) + minPos;
       
-        // console.log(ramdomPos);
       setTimeout(function(){
         self.enemyManager.CreateEnemy(SCREEN_WIDTH,ramdomPos,self.stage);
         self.enemyCounter += 1;
         self.pop=0;
-        console.log(ramdomPos);
-     
       }, self.popTime);
-     
       self.pop=1;
+
     }
 
     if(this.castle.value>0 && this.player.isAlive==1){
       // ステージクリア
       if(self.enemyCounter>=self.enemyMaxCount && EnemyGroup.children.length==0){
-
-        this.cLabel=Label({
-          text: 'STAGE CLEAR',
-          fontSize: 64,
-          fill:"red",
-          fontWeight:"bold",
-        }).addChildTo(this).setPosition(this.gridX.center(), this.gridY.center()-40);
-        
-        this.cBtn=Button({
-          text: 'NEXT STAGE',
-          fontSize:34,
-          width:250,
-          height:60,
-          color:"black",
-          fill:"gray",
-        }).addChildTo(this).setPosition(this.gridX.center(), this.gridY.center()+50).onpush = function() {
-          //変数引継ぎ 
-          self.exit("MainScene",{
-            next:1,
-            enemyMaxCount:self.enemyMaxCount+2,
-            castleHP:self.castle.value,
-            stage:self.stage+1,
-            playHP:self.player.hp,
-          }); 
-
-        };    
+        self.waveClear=1;
       }
+      if(self.isBoss==1 && self.waveClear==1){
+        if(BossGroup.children.length==0){
+          this.GameClear();
+        }
+      }else if(self.isBoss==0 && self.waveClear==1){
+        this.GameClear();
+      }
+
     }else{
         // ゲームオーバー用
         this.GameOver();
     }
 
-
+  
 
     // 画面外処理
     BulletGroup.children.each(function(bullet) {
@@ -270,12 +276,13 @@ phina.define("MainScene", {
     
     // あたり判定
     this.allCollision();
-
     
     //スマフォ処理 
     // if(phina.isMobile()){
 
     // }
+
+
   },
 
 
@@ -295,11 +302,7 @@ phina.define("MainScene", {
 
     //playerHP
     (this.player.hp) .times(function(i){
-      // var bg = Sprite('bg1').addChildTo(this.bgGroup);
-      // bg.setPosition(this.gridX.center(), this.gridY.center());
       let playerIcon = Sprite('player', PLAYER_SIZE-10, PLAYER_SIZE-10).addChildTo(self.spriteGroup).setPosition(30+(i*40), 30);
-      // playerIcon.
-      
     });
   },
 
@@ -335,6 +338,7 @@ phina.define("MainScene", {
         if (Collision.testRectRect(r1, r2)) {
           bullet.remove();
           enemy.remove();
+          SoundManager.play('down');
         }
       });
     });
@@ -351,6 +355,20 @@ phina.define("MainScene", {
         }
       });
     });
+
+    BossGroup.children.each(function(boss) {
+      BulletGroup.children.each(function(bullet) {
+        // 当たり判定用の矩形
+        var r1 = boss.collider.getAbsoluteRect();
+        var r2 = bullet.collider.getAbsoluteRect();
+        // ヒットなら
+        if (Collision.testRectRect(r1, r2)) {
+          bullet.remove();
+          boss.damage();
+        }
+      });
+    });
+
   },
 
   GameOver:function(){
@@ -370,9 +388,50 @@ phina.define("MainScene", {
       color:"black",
       fill:"gray",
     }).addChildTo(this).setPosition(this.gridX.center(), this.gridY.center()+50).onpush = function() {
+      SoundManager.stopMusic();
+
         self.exit("TittleScene");
     };
+
+    
   },
+  GameClear:function(){
+    let self=this;
+    this.cLabel=Label({
+      text: 'STAGE CLEAR',
+      fontSize: 64,
+      fill:"red",
+      fontWeight:"bold",
+    }).addChildTo(this).setPosition(this.gridX.center(), this.gridY.center()-40);
+    
+    this.cBtn=Button({
+      text: 'NEXT STAGE',
+      fontSize:34,
+      width:250,
+      height:60,
+      color:"black",
+      fill:"gray",
+    }).addChildTo(this).setPosition(this.gridX.center(), this.gridY.center()+50).onpush = function() {
+      // SoundManager.stopMusic();
+
+      //変数引継ぎ 
+      self.exit("MainScene",{
+        next:1,
+        enemyMaxCount:self.enemyMaxCount+2,
+        castleHP:self.castle.value,
+        stage:self.stage+1,
+        playHP:self.player.hp,
+      }); 
+
+    }; 
+  },
+
+  BossInit:function(){
+    this.boss = Boss().addChildTo(this).setPosition(450, -50).addChildTo(BossGroup);
+    this.boss.tweener.moveTo(450,200);
+    this.isBoss=1;
+    this.popBaseTime=6000;
+  } 
 
 });
 
@@ -407,7 +466,7 @@ phina.define("Player", {
     if(this.canShoot){
       let bullet=Bullet().addChildTo(BulletGroup).setPosition(this.x, this.y);
       self.canShoot=false;
-      setTimeout(function(){self.canShoot=true;}, 500);
+      setTimeout(function(){self.canShoot=true;}, 250);
     }
     
 
@@ -539,7 +598,6 @@ phina.define("Bullet", {
   },
 });
 
-
 //// エネミー関連
 // 弾
 phina.define("Enemy", {
@@ -633,7 +691,7 @@ phina.define("EnemyManager", {
     this.num = 0;
     this.hp=10;
   },
-  CreateEnemy: function (x, y,stage) {
+  CreateEnemy: function (x, y,stage=1) {
     let enemy=Enemy().addChildTo(EnemyGroup).setPosition(x, y);
     enemy.popY=y;
     let speed=enemy.speed+(0.25*stage)>=5?5:enemy.speed+(0.25*stage);
@@ -667,60 +725,131 @@ phina.define("Boss", {
   // 初期化
   init: function () {
     // 親クラス初期化
-    this.superInit();
+    this.superInit('Boss', C.BOSS_SIZE, C.BOSS_SIZE);
     
-    this.hp=2;
+    this.hp=C.BOSS_HP;
+    this.warpPos=C.BOSS_POSITION;
     this.speed = 1.5;
-    var self = this;
-    this.time=0;    
+    let self=this;
+    this.enemyManager = EnemyManager();
+    this.oldPos=null;
+    this.firstWarp=0;
+    this.warpCount=0;
+    // this.ef=null;
+    
+       
+      //  this.ef = FrameAnimation('warp').attachTo(this);
+
+
+
+    // FrameAnimation('boss').attachTo(this).gotoAndPlay('walk');
+   
+    
+    // this.ef.alpha=0;
+    let sp=Sprite("boss", 32, 32).addChildTo(self);
+    FrameAnimation('boss').attachTo(sp).gotoAndPlay('walk');
+
+    this.ef=Sprite("warp", 32, 32).addChildTo(self).setPosition(self.x, self.y);
+    this.ss=FrameAnimation('warp').attachTo(this.ef);
+
+    
     this.collider = Collider({
       width: 32,
       height: 32,
     }).addChildTo(this);
 
-    var min = 0;
-    var max = 2;
-    let myNum = Math.floor(Math.random() *
-      (max + 1 - min)) + min;
-
-    let type = [1, 2, 3];
-    // console.log(type[myNum]);
-    let str="ghost"+String(type[myNum]);
-    // console.log(str);
-
-    let sp=Sprite(str, 32, 32).addChildTo(self).setPosition(self.x, self.y);
-    FrameAnimation('ghost').attachTo(sp).gotoAndPlay('walk');
-    this.myType=type[myNum];
     
-    if(this.myType==2){
-      if(this.y>=SCREEN_HEIGHT-50){
-        this.y=SCREEN_HEIGHT-70;
-      }
+    
+  },
 
-      // if(this.y>=50){
-      //   this.y=60;
-      // }
+  update: function (app) {
+    
+    var key = app.keyboard;
+    let self=this;
+    console.log(app.frame);
+
+    if(self.firstWarp==0){
+      if(app.frame%200==0){
+        self.enemyManager.CreateEnemy(self.x,self.y);
+        self.firstWarp=1;
+      }
+    }else{
+      if(app.frame%50==0){
+        self.enemyManager.CreateEnemy(self.x,self.y);
+        self.warpCount++;
+        
+      }
+    }
+
+    if(self.warpCount==3){
+      self.ef.alpha=1;
+      self.ss.gotoAndPlay("warp");
+      self.warpCount=0;
     }
 
 
+    // warp処理
+    if (this.ss.finished) {
+      self.ss=FrameAnimation('warp').attachTo(self.ef);
+      self.ef.alpha=0;
+
+      let newPos=C.BOSS_POSITION[getRandomInt(4)];
+
+      if(self.oldPos!=null){
+        while(newPos==self.oldPos){
+          newPos=C.BOSS_POSITION[getRandomInt(4)];
+        }
+      }
+      console.log(newPos);
+      self.x=newPos.x;
+      self.y=newPos.y;
+      
+      self.oldPos=newPos;
+    }
 
   },
 
-  update: function () {
-
-    
-  },
-  damege:function(){
+  damage:function(){
     let self=this;
     this.hp-=1;
     if(this.hp>=0){
       self.remove();
     }
   },
-  delete:function(){
-    this.remove();
-  }
 
+
+  
+
+});
+
+// エフェクト
+phina.define(`Warp`, {
+  // Spriteを継承
+  superClass: 'Sprite',
+  // 初期化
+  init: function() {
+    // 親クラスの初期化
+    this.superInit('warp', 120, 120);
+
+    // SpriteSheetをスプライトにアタッチ
+    var anim = FrameAnimation('warp').attachTo(this);
+    // スプライトシートのサイズにフィットさせない
+    anim.fit = false;
+    //アニメーションを再生する
+    anim.gotoAndPlay('warp');
+    // サイズ変更
+    // this.setSize(20*5, 20*5);
+    // 参照用
+    this.anim = anim;
+  },
+  // 毎フレーム処理
+  update: function() {
+    // アニメーションが終わったら自身を消去
+    if (this.anim.finished) {
+      this.remove();
+      console.log('removed');
+    }
+  },
 });
 
 
@@ -789,6 +918,16 @@ phina.define("MyPauseScene", {
   },
 });
 
+function stop(time) {
+  return new Promise( (resolve) => {
+    setTimeout(resolve, time)
+  })
+}
+
+
+function getRandomInt(max) {
+  return Math.floor(Math.random() * Math.floor(max));
+}
 /*
  * ショップシーン
  */
