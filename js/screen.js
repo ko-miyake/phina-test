@@ -1,20 +1,16 @@
 
+window.onload = function() {
+  window.addEventListener('keydown', keydownfunc, true);
+}
 
-
-
-$(function() {
- 
-  //ウインドウがリサイズされたら発動
-  $(window).resize(function() {
- 
-    var w = $('.warp').width();
-    var h = $('.warp').height();
-
-    
-    $('#phina-canvas').attr('width', w);
-    $('#phina-canvas').attr('height', h);
-    console.log(w);
-
- 
-  });
-});
+var keydownfunc = function( event ) {
+  var code = event.keyCode;
+    switch(code) {
+    case 37: // ←
+    case 38: // ↑
+    case 39: // →
+    case 40: // ↓
+      event.preventDefault();
+      console.log(code);
+  }
+}

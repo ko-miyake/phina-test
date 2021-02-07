@@ -1,12 +1,13 @@
 body{
   margin: 0;
+  background-image: url('http://localhost:8080/images/bg00.png');
 }
 img{
   max-width: 100%;
 }
 
 .container{
-  background-image: url('http://localhost:8080/images/bg00.png');
+  // background-image: url('http://localhost:8080/images/bg00.png');
   
     &__game{
       max-width: 800px; 
